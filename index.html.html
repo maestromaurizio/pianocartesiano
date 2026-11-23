@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Disegni misteriosi sul piano cartesiano</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eaf2fb;--panel:#ffffff;--ink:#16233a;--muted:#5a6b85;--grid:#bcd0e8;--axis:#16233a;
+  --draw:#6d28d9;--ring:#f59e0b;--ok:#0f7b4a;--bad:#c0262d;--line:#cfdbec;--chip:#f1f6fc;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a2b;--panel:#17263d;--ink:#e8eef8;--muted:#9fb0c9;--grid:#2c4263;--axis:#e8eef8;
+  --draw:#b794f6;--ring:#fbbf24;--ok:#4ade80;--bad:#ff7b81;--line:#2c4263;--chip:#1d2f4a;}}
+:root[data-theme="dark"]{
+  --bg:#0f1a2b;--panel:#17263d;--ink:#e8eef8;--muted:#9fb0c9;--grid:#2c4263;--axis:#e8eef8;
+  --draw:#b794f6;--ring:#fbbf24;--ok:#4ade80;--bad:#ff7b81;--line:#2c4263;--chip:#1d2f4a;}
+*,*::before,*::after{box-sizing:inherit}
+html{font-size:clamp(16px,.6vw + 10px,22px);scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito","Trebuchet MS",system-ui,sans-serif;line-height:1.4}
+main{max-width:1600px;margin:0 auto;padding:18px 16px 32px}
+h1{font-size:clamp(1.5rem,4vw,2.1rem);margin:0 0 4px;font-weight:800}
+.sub{margin:0 0 16px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.layout{grid-template-columns:1fr}}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:14px}
+svg{display:block;width:max(280px,min(100%,calc(100vh - 120px)));height:auto;margin:0 auto}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tab{font:inherit;font-weight:700;border:2px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:7px 14px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--draw);border-color:var(--draw);color:#fff}
+.step{font-size:1.15rem;font-weight:800;margin:0 0 2px}
+.small{color:var(--muted);font-size:.92rem;margin:0 0 10px}
+.bar{height:8px;background:var(--chip);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.bar i{display:block;height:100%;width:0;background:var(--draw);transition:width .25s}
+.entry{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.field{display:flex;flex-direction:column;gap:3px;font-weight:700}
+.field span{font-size:.9rem;color:var(--muted)}
+.inp{display:flex;gap:4px}
+input{font:inherit;font-size:1.3rem;font-weight:800;width:4.2rem;text-align:center;padding:8px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+button{font:inherit;font-weight:700;cursor:pointer}
+.sign{width:2.6rem;border:2px solid var(--line);border-radius:10px;background:var(--chip);color:var(--ink);font-size:1.2rem}
+.go{border:0;border-radius:12px;background:var(--draw);color:#fff;padding:12px 18px;font-size:1.05rem}
+.ghost{border:2px solid var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:8px 12px}
+:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+#msg{min-height:3.1em;margin:8px 0;font-weight:700}
+#msg.ok{color:var(--ok)}#msg.bad{color:var(--bad)}
+.shake{animation:sh .35s}
+@keyframes sh{20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.shake{animation:none}.bar i{transition:none}}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.list{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.list li{background:var(--chip);border:2px solid transparent;border-radius:8px;padding:3px 8px;font-size:.92rem}
+.list li.done{border-color:var(--ok)}
+.list li.now{border-color:var(--ring);font-weight:800}
+.list li.new{margin-top:6px;flex-basis:100%;background:none;padding:0;color:var(--muted);font-weight:800}
+.win{display:none;text-align:center;padding:10px 0}
+.win .big{font-size:3rem}
+svg.click{cursor:crosshair;touch-action:manipulation}
+.win h2{margin:4px 0 8px}
+</style>
+</head>
+<body>
+<main>
+  <button class="ghost" id="fs" style="display:none;float:right">Schermo intero</button>
+  <h1>Disegni misteriosi sul piano cartesiano</h1>
+  <p class="sub">Scegli una modalità: scrivi le coordinate, clicca sul piano, leggi le coordinate di un punto oppure disegna a mano libera. Prima la x (orizzontale), poi la y (verticale).</p>
+  <div class="layout">
+    <div class="card"><svg id="board" viewBox="24 8 612 612" role="img" aria-label="Piano cartesiano da −8 a 8"></svg></div>
+    <div class="card">
+      <div class="tabs" id="tabs"></div>
+      <div class="tabs" id="modes"><button class="tab" data-m="type" aria-pressed="true">Scrivi le coordinate</button><button class="tab" data-m="click" aria-pressed="false">Clicca sul piano</button><button class="tab" data-m="read" aria-pressed="false">Leggi le coordinate</button><button class="tab" data-m="free" aria-pressed="false">A mano libera</button></div>
+      <div id="play">
+        <p class="step" id="step"></p>
+        <p class="small" id="hint"></p>
+        <div class="bar"><i id="prog"></i></div>
+        <div class="entry" id="entry">
+          <label class="field"><span>x</span><span class="inp"><input id="x" inputmode="numeric" autocomplete="off" aria-label="Coordinata x"><button class="sign" data-t="x" aria-label="Cambia segno di x">±</button></span></label>
+          <label class="field"><span>y</span><span class="inp"><input id="y" inputmode="numeric" autocomplete="off" aria-label="Coordinata y"><button class="sign" data-t="y" aria-label="Cambia segno di y">±</button></span></label>
+          <button class="go" id="go">Disegna il punto</button>
+        </div>
+        <div id="msg" role="status" aria-live="polite"></div>
+        <div class="row"><button class="ghost" id="aiuto">Dammi un aiuto</button><button class="ghost" id="reset">Ricomincia</button></div>
+      </div>
+      <div class="win" id="win"><div class="big" id="wemoji"></div><h2 id="wtext"></h2><button class="go" id="next">Prossimo disegno</button> <button class="ghost" id="again">Ricomincia</button></div>
+      <div id="free" style="display:none">
+        <p class="step">A mano libera</p>
+        <p class="small">Clicca su un incrocio del piano: il punto si segna e le coordinate vengono scritte per te. Per cominciare una nuova linea premi «Alza la matita».</p>
+        <div class="row"><button class="ghost" id="lift">Alza la matita</button><button class="ghost" id="undo">Annulla ultimo punto</button><button class="ghost" id="clear">Cancella tutto</button></div>
+        <div class="row" id="dl" style="display:none"><button class="ghost" id="savepng">Salva l’immagine</button><button class="ghost" id="savetxt">Salva le coordinate</button><button class="ghost" id="savepdf" style="display:none">Salva il PDF (2 pagine)</button></div>
+        <p class="small" id="fnote" aria-live="polite"></p>
+        <ul class="list" id="flist" aria-live="polite"></ul>
+      </div>
+      <div id="lst"><h3 class="small" style="margin:14px 0 6px">Punti da disegnare</h3>
+      <ul class="list" id="list"></ul></div>
+    </div>
+  </div>
+</main>
+<script>
+const mir=p=>p.map(([x,y])=>[x,-y]);
+const mirx=p=>p.map(([x,y])=>[-x,y]);
+const FA=[[0,3],[3,7],[7,6],[6,2],[0,0],[5,-1],[6,-5],[2,-6],[0,-3]],FN=[[0,4],[1,6]];
+const PA=[[-6,0],[-3,3],[1,3],[4,1],[7,3]], PF=[[-1,3],[0,5],[1,3]];
+const FIG=[
+ {nome:"Livello 1",oggetto:"l’aquilone",emoji:"🪁",tratti:[
+  [[0,7],[4,1],[0,-4],[-4,1],[0,7]],[[0,7],[0,-4]],[[-4,1],[4,1]],[[0,-4],[-2,-5],[0,-6],[2,-7],[0,-8]]]},
+ {nome:"Livello 2",oggetto:"il razzo",emoji:"🚀",tratti:[
+  [[-2,-3],[-2,3],[0,7],[2,3],[2,-3],[-2,-3]],[[-2,-1],[-5,-5],[-2,-3]],[[2,-1],[5,-5],[2,-3]],
+  [[-1,1],[-1,3],[1,3],[1,1],[-1,1]],[[-1,-3],[0,-6],[1,-3]]]},
+ {nome:"Livello 3",oggetto:"il pesce",emoji:"🐟",tratti:[PA,[[7,3],[7,-3]],PF,[[-4,1]],mir(PA),mir(PF)],sim:{4:0,5:2},asse:"x",
+  nota:"Nei tratti 5 e 6 devi trovare tu i punti simmetrici rispetto all’asse x."},
+ {nome:"Livello 4",oggetto:"il cuore",emoji:"❤️",tratti:[
+  [[0,-6],[-6,0],[-6,3],[-4,5],[-2,5],[0,3],[2,5],[4,5],[6,3],[6,0],[0,-6]]]},
+ {nome:"Livello 5",oggetto:"la farfalla",emoji:"🦋",tratti:[FA,[[0,-5],[0,4]],FN,mirx(FA),mirx(FN)],sim:{3:0,4:2},asse:"y",
+  nota:"Nei tratti 4 e 5 devi trovare tu i punti simmetrici rispetto all’asse y. Se il punto sta sull’asse, il simmetrico è lo stesso punto."},
+ {nome:"Livello 6",oggetto:"il castello",emoji:"🏰",tratti:[
+  [[-6,-6],[-6,5],[-4,5],[-4,3],[-1,3],[-1,5],[1,5],[1,3],[4,3],[4,5],[6,5],[6,-6],[-6,-6]],
+  [[-1,-6],[-1,-1],[0,0],[1,-1],[1,-6]],
+  [[-5,0],[-5,2],[-4,2],[-4,0],[-5,0]],
+  [[4,0],[4,2],[5,2],[5,0],[4,0]],
+  [[0,5],[0,8],[2,7],[0,6]]]}
+];
+const S=34,C=320,X=x=>C+x*S,Y=y=>C-y*S,NS="http://www.w3.org/2000/svg";
+const $=id=>document.getElementById(id);
+const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e};
+const svg=$("board");
+// griglia
+for(let i=-8;i<=8;i++){
+  el("line",{x1:X(i),y1:Y(-8),x2:X(i),y2:Y(8),stroke:"var(--grid)","stroke-width":1});
+  el("line",{x1:X(-8),y1:Y(i),x2:X(8),y2:Y(i),stroke:"var(--grid)","stroke-width":1});
+}
+const ax={stroke:"var(--axis)","stroke-width":2.2};
+el("line",{...ax,x1:X(-8.5),y1:Y(0),x2:X(8.8),y2:Y(0)});el("line",{...ax,x1:X(0),y1:Y(-8.5),x2:X(0),y2:Y(8.8)});
+el("path",{d:`M${X(8.95)} ${Y(0)}l-10 -6v12z`,fill:"var(--axis)"});el("path",{d:`M${X(0)} ${Y(8.95)}l-6 10h12z`,fill:"var(--axis)"});
+const tx=(x,y,t,a)=>{const e=el("text",{x,y,fill:"var(--ink)","font-size":12,"text-anchor":a||"middle","font-family":"Nunito,sans-serif"});e.textContent=t};
+for(let i=-8;i<=8;i++){if(!i)continue;tx(X(i),Y(0)+16,i);tx(X(0)-7,Y(i)+4,i,"end")}
+tx(X(0)-7,Y(0)+16,"0","end");
+el("text",{x:X(8.95)-6,y:Y(0)+24,fill:"var(--ink)","font-size":18,"font-style":"italic","font-weight":800}).textContent="x";
+el("text",{x:X(0)+14,y:Y(8.95)+6,fill:"var(--ink)","font-size":18,"font-style":"italic","font-weight":800}).textContent="y";
+const layer=el("g",{}),probe=el("g",{});
+
+let fi=0,steps=[],i=0,timer;
+function build(){
+  const f=FIG[fi];steps=[];
+  f.tratti.forEach((t,ti)=>t.forEach((p,pi)=>steps.push({p,ti,pi,n:t.length,sim:!!(f.sim&&ti in f.sim),orig:f.sim&&ti in f.sim?f.tratti[f.sim[ti]][pi]:null})));
+}
+const fmt=p=>`(${p[0]} ; ${p[1]})`;
+function label(s){return s.sim?`simmetrico di ${fmt(s.orig)}`:fmt(s.p)}
+function render(){
+  const fr=mode==="free";
+  $("free").style.display=fr?"block":"none";$("tabs").style.display=fr?"none":"flex";$("lst").style.display=fr?"none":"block";
+  if(fr){$("play").style.display="none";$("win").style.display="none";renderFree();return}
+  const f=FIG[fi];
+  layer.innerHTML="";probe.innerHTML="";
+  const done=steps.slice(0,i);
+  done.forEach((s,k)=>{
+    if(s.pi>0){const q=steps[k-1].p;el("line",{x1:X(q[0]),y1:Y(q[1]),x2:X(s.p[0]),y2:Y(s.p[1]),stroke:"var(--draw)","stroke-width":4,"stroke-linecap":"round"},layer)}
+  });
+  done.forEach(s=>el("circle",{cx:X(s.p[0]),cy:Y(s.p[1]),r:s.n==1?7:4.5,fill:"var(--draw)"},layer));
+  if(i>0&&i<steps.length&&mode!=="read"){const q=steps[i-1].p;el("circle",{cx:X(q[0]),cy:Y(q[1]),r:9,fill:"none",stroke:"var(--ring)","stroke-width":3},layer)}
+  if(mode==="read"&&i<steps.length){const t=steps[i].p;el("circle",{cx:X(t[0]),cy:Y(t[1]),r:8,fill:"var(--ring)",stroke:"var(--ink)","stroke-width":2.5},layer)}
+  // elenco
+  const ul=$("list");ul.innerHTML="";let last=-1;
+  steps.forEach((s,k)=>{
+    if(s.ti!==last){last=s.ti;const h=document.createElement("li");h.className="new";h.textContent=`Tratto ${s.ti+1}`+(s.sim?" (da trovare)":"");ul.appendChild(h)}
+    const li=document.createElement("li");li.textContent=mode==="read"&&k>=i?"( ? ; ? )":(k<i||!s.sim?fmt(s.p):label(s));
+    if(k<i){li.className="done";li.textContent="✓ "+fmt(s.p)}else if(k===i)li.className="now";
+    ul.appendChild(li);
+  });
+  $("prog").style.width=(i/steps.length*100)+"%";
+  const fin=i>=steps.length;
+  $("play").style.display=fin?"none":"block";$("win").style.display=fin?"block":"none";
+  if(fin){$("wemoji").textContent=f.emoji;$("wtext").textContent=`Hai disegnato ${f.oggetto}!`;$("next").style.display=fi<FIG.length-1?"inline-block":"none"}
+  else{
+    const s=steps[i];
+    $("step").textContent=`Tratto ${s.ti+1}, punto ${s.pi+1} di ${s.n}`;
+    $("hint").textContent=mode==="read"?"Guarda il punto arancione sul piano. Quali sono le sue coordinate? Scrivi prima la x, poi la y.":(s.sim?`Trova il punto simmetrico di ${fmt(s.orig)} rispetto all’asse ${f.asse}.`:`Segna il punto ${fmt(s.p)}.`)+(mode==="click"?" Clicca sul piano.":"");
+    $("x").value=$("y").value="";
+  }
+}
+function tabs(){
+  const t=$("tabs");t.innerHTML="";
+  FIG.forEach((f,k)=>{const b=document.createElement("button");b.className="tab";b.textContent=f.nome;b.setAttribute("aria-pressed",k===fi);
+    b.onclick=()=>{fi=k;start()};t.appendChild(b)});
+}
+function start(){build();i=0;tabs();setMsg("");render();if(FIG[fi].nota)setMsg(FIG[fi].nota,"");if(mode!=="click")$("x").focus()}
+function setMsg(t,c){const m=$("msg");m.textContent=t;m.className=c||""}
+const num=v=>{v=v.trim().replace(/[−–—]/g,"-");return /^-?\d+$/.test(v)?parseInt(v,10):null};
+function quadrante(p){
+  const [x,y]=p;
+  if(!x&&!y)return"nell’origine, dove si incrociano gli assi";
+  if(!x)return`sull’asse y, ${y>0?"sopra":"sotto"} lo 0`;
+  if(!y)return`sull’asse x, a ${x>0?"destra":"sinistra"} dello 0`;
+  return`${y>0?"in alto":"in basso"} a ${x>0?"destra":"sinistra"} (x ${x>0?"positivo":"negativo"}, y ${y>0?"positivo":"negativo"})`;
+}
+function submit(){
+  const a=num($("x").value),b=num($("y").value);
+  if(a===null||b===null){setMsg("Scrivi due numeri interi: la x e la y.","bad");return}
+  attempt(a,b);
+}
+function attempt(a,b){
+  if(i>=steps.length)return;
+  const w=steps[i].p,pre=mode==="click"?`Hai cliccato ${fmt([a,b])}. `:"";
+  if(a===w[0]&&b===w[1]){
+    i++;const fin=i>=steps.length;
+    if(!fin&&steps[i].pi===0)setMsg("Giusto! Alza la matita: comincia un nuovo tratto.","ok");
+    else if(!fin)setMsg("Giusto!","ok");
+    render();if(!fin&&mode!=="click")$("x").focus();return;
+  }
+  let t="Non è il punto giusto. Riprova.";
+  if(a===w[1]&&b===w[0])t="Hai scambiato x e y. Prima si legge l’asse orizzontale (x), poi quello verticale (y).";
+  else if(Math.abs(a)===Math.abs(w[0])&&Math.abs(b)===Math.abs(w[1]))t="I numeri sono giusti, ma controlla i segni: positivo o negativo?";
+  else if(a===w[0]||b===w[1])t=`${a===w[0]?"La x":"La y"} è giusta. Controlla ${a===w[0]?"la y":"la x"}.`;
+  setMsg(pre+t,"bad");
+  $("msg").classList.remove("shake");void $("msg").offsetWidth;$("msg").classList.add("shake");
+  probe.innerHTML="";
+  if(Math.abs(a)<=8&&Math.abs(b)<=8){
+    const g=el("g",{stroke:"var(--bad)","stroke-width":3.5,"stroke-linecap":"round"},probe);
+    el("line",{x1:X(a)-6,y1:Y(b)-6,x2:X(a)+6,y2:Y(b)+6},g);el("line",{x1:X(a)-6,y1:Y(b)+6,x2:X(a)+6,y2:Y(b)-6},g);
+    clearTimeout(timer);timer=setTimeout(()=>probe.innerHTML="",2200);
+  }
+}
+$("go").onclick=submit;
+$("x").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("y").focus()}});
+$("y").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submit()}});
+document.querySelectorAll(".sign").forEach(b=>b.onclick=()=>{
+  const inp=$(b.dataset.t);let v=inp.value.trim();
+  inp.value=v.startsWith("-")?v.slice(1):"-"+v;inp.focus();
+});
+$("aiuto").onclick=()=>{const s=steps[i];setMsg(s.sim?`Il simmetrico sta ${quadrante(s.p)}. Cambia il segno di una sola coordinata.`:`Il punto sta ${quadrante(s.p)}.`,"")};
+$("reset").onclick=$("again").onclick=start;
+$("next").onclick=()=>{fi=(fi+1)%FIG.length;start()};
+let mode="type";
+const ghost=el("g",{},svg);
+function snap(e){
+  const m=svg.getScreenCTM();if(!m)return null;
+  const q=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
+  const x=Math.round((q.x-C)/S),y=Math.round((C-q.y)/S);
+  return Math.abs(x)<=8&&Math.abs(y)<=8?[x,y]:null;
+}
+svg.addEventListener("pointermove",e=>{
+  ghost.innerHTML="";
+  if((mode!=="click"&&mode!=="free")||(mode!=="free"&&i>=steps.length))return;
+  const p=snap(e);
+  if(p){el("circle",{cx:X(p[0]),cy:Y(p[1]),r:9,fill:"none",stroke:"var(--muted)","stroke-width":2,"stroke-dasharray":"4 3"},ghost);if(mode==="free"){const t=el("text",{x:X(p[0])+12,y:Y(p[1])-10,fill:"var(--ink)","font-size":13,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},ghost);t.textContent=fmt(p)}}
+});
+svg.addEventListener("pointerleave",()=>{ghost.innerHTML=""});
+svg.addEventListener("click",e=>{
+  if(mode==="free"){const p=snap(e);if(p)addFree(p);return}
+  if(mode!=="click")return;
+  const p=snap(e);
+  if(p)attempt(p[0],p[1]);
+});
+function setMode(m){
+  mode=m;
+  $("entry").style.display=m==="click"?"none":"flex";
+  svg.classList.toggle("click",m==="click");
+  document.querySelectorAll("#modes .tab").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===m));
+  ghost.innerHTML="";setMsg("");
+  render();
+  if(m==="type"||m==="read")$("x").focus();
+}
+document.querySelectorAll("#modes .tab").forEach(b=>{b.onclick=()=>setMode(b.dataset.m)});
+let F=[],lifted=false;
+function addFree(p){
+  const cur=F[F.length-1];
+  if(!cur||lifted){F.push([p]);lifted=false}
+  else{const l=cur[cur.length-1];if(l[0]===p[0]&&l[1]===p[1])return;cur.push(p)}
+  renderFree();
+}
+function renderFree(){
+  layer.innerHTML="";probe.innerHTML="";
+  F.forEach(st=>st.forEach((p,k)=>{if(k>0){const q=st[k-1];el("line",{x1:X(q[0]),y1:Y(q[1]),x2:X(p[0]),y2:Y(p[1]),stroke:"var(--draw)","stroke-width":4,"stroke-linecap":"round"},layer)}}));
+  F.forEach(st=>st.forEach(p=>{
+    el("circle",{cx:X(p[0]),cy:Y(p[1]),r:4.5,fill:"var(--draw)"},layer);
+    const t=el("text",{x:X(p[0])+8,y:Y(p[1])-8,fill:"var(--ink)","font-size":12,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},layer);
+    t.textContent=fmt(p);
+  }));
+  const st=F[F.length-1];
+  if(st&&!lifted){const q=st[st.length-1];el("circle",{cx:X(q[0]),cy:Y(q[1]),r:9,fill:"none",stroke:"var(--ring)","stroke-width":3},layer)}
+  const ul=$("flist");ul.innerHTML="";
+  F.forEach((s,n)=>{
+    const h=document.createElement("li");h.className="new";h.textContent=`Tratto ${n+1}`;ul.appendChild(h);
+    s.forEach((p,k)=>{const li=document.createElement("li");li.textContent=`${k+1}. ${fmt(p)}`;ul.appendChild(li)});
+  });
+  $("fnote").textContent=lifted?"Matita alzata: il prossimo punto comincia un nuovo tratto.":"";
+}
+$("lift").onclick=()=>{if(F.length){lifted=true;renderFree()}};
+$("undo").onclick=()=>{
+  const cur=F[F.length-1];if(!cur)return;
+  cur.pop();if(!cur.length)F.pop();
+  lifted=false;renderFree();
+};
+$("clear").onclick=()=>{F=[];lifted=false;renderFree()};
+let DL=null;
+try{claude.use("downloads").then(d=>{DL=d;if(d){$("dl").style.display="flex";if(window.jspdf)$("savepdf").style.display=""}}).catch(()=>{})}catch(e){}
+function note(t){$("fnote").textContent=t}
+function guard(){if(!F.length){note("Segna almeno un punto prima di salvare.");return false}return true}
+$("savetxt").onclick=async()=>{
+  if(!DL||!guard())return;
+  const txt="Il mio disegno sul piano cartesiano\n\n"+F.map((s,n)=>`Tratto ${n+1}: `+s.map(fmt).join(" - ")).join("\n")+"\n";
+  try{await DL.save({filename:"coordinate-disegno.txt",data:txt});note("File delle coordinate salvato.")}
+  catch(e){if(!e||e.code!=="declined")note("Non sono riuscito a salvare il file.")}
+};
+$("savepng").onclick=async()=>{
+  if(!DL||!guard())return;
+  ghost.innerHTML="";
+  try{
+    const cs=getComputedStyle(document.documentElement);
+    const c=svg.cloneNode(true);c.setAttribute("xmlns",NS);c.setAttribute("width",1280);c.setAttribute("height",1280);
+    const s=new XMLSerializer().serializeToString(c).replace(/var\((--[\w-]+)\)/g,(m,n)=>cs.getPropertyValue(n).trim());
+    const img=new Image();
+    await new Promise((ok,ko)=>{img.onload=ok;img.onerror=ko;img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(s)});
+    const cv=document.createElement("canvas");cv.width=cv.height=1280;
+    const g=cv.getContext("2d");g.fillStyle=cs.getPropertyValue("--panel").trim();g.fillRect(0,0,1280,1280);g.drawImage(img,0,0,1280,1280);
+    const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
+    await DL.save({filename:"disegno-piano-cartesiano.png",data:blob});note("Immagine salvata.");
+  }catch(e){if(!e||e.code!=="declined")note("Non sono riuscito a creare l’immagine.")}
+};
+const LIGHT={"--grid":"#bcd0e8","--axis":"#16233a","--ink":"#16233a","--draw":"#6d28d9","--ring":"#f59e0b","--bg":"#ffffff","--panel":"#ffffff","--muted":"#5a6b85"};
+async function shot(withDrawing){
+  ghost.innerHTML="";
+  const c=svg.cloneNode(true);c.setAttribute("xmlns",NS);c.setAttribute("width",1280);c.setAttribute("height",1280);
+  [...c.querySelectorAll(":scope > g")].forEach((g,k)=>{if(!withDrawing||k>0)g.remove()});
+  const s=new XMLSerializer().serializeToString(c).replace(/var\((--[\w-]+)\)/g,(m,n)=>LIGHT[n]||"#000");
+  const img=new Image();
+  await new Promise((ok,ko)=>{img.onload=ok;img.onerror=ko;img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(s)});
+  const cv=document.createElement("canvas");cv.width=cv.height=1280;
+  const g=cv.getContext("2d");g.fillStyle="#ffffff";g.fillRect(0,0,1280,1280);g.drawImage(img,0,0,1280,1280);
+  return cv.toDataURL("image/png");
+}
+$("savepdf").onclick=async()=>{
+  if(!DL||!window.jspdf||!guard())return;
+  try{
+    note("Preparo il PDF...");
+    const empty=await shot(false),full=await shot(true);
+    const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
+    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("Disegno misterioso",15,20);
+    doc.setFont("helvetica","normal");doc.setFontSize(11);
+    doc.text("Nome: ______________________     Classe: ________     Data: ____________",15,28);
+    doc.text("Segna i punti in ordine e uniscili con il righello. Alza la matita a ogni nuovo tratto.",15,35);
+    doc.addImage(empty,"PNG",30,40,150,150);
+    let y=200;
+    F.forEach((s,n)=>{
+      const lines=doc.splitTextToSize(`Tratto ${n+1}: `+s.map(fmt).join(" - "),180);
+      if(y+lines.length*5.5>285){doc.addPage();y=20}
+      doc.text(lines,15,y);y+=lines.length*5.5+2;
+    });
+    doc.addPage();
+    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("Soluzione",15,20);
+    doc.addImage(full,"PNG",30,30,150,150);
+    await DL.save({filename:"disegno-coordinate.pdf",data:doc.output("arraybuffer")});
+    note("PDF salvato.");
+  }catch(e){note(e&&e.code==="declined"?"":"Non sono riuscito a creare il PDF.")}
+};
+const fsb=$("fs"),root=document.documentElement;
+if(document.fullscreenEnabled&&root.requestFullscreen)fsb.style.display="";
+fsb.onclick=()=>{
+  if(document.fullscreenElement)document.exitFullscreen();
+  else root.requestFullscreen().catch(()=>{fsb.style.display="none"});
+};
+document.addEventListener("fullscreenchange",()=>{fsb.textContent=document.fullscreenElement?"Esci da schermo intero":"Schermo intero"});
+start();
+</script>
+</body>
+</html>
