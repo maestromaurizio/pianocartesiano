@@ -240,11 +240,18 @@ function snap(e){
   const x=Math.round((q.x-C)/S),y=Math.round((C-q.y)/S);
   return Math.abs(x)<=8&&Math.abs(y)<=8?[x,y]:null;
 }
+function guide(p){
+  const st={stroke:"var(--ring)","stroke-width":2.5,"stroke-dasharray":"6 4","stroke-opacity":.9};
+  el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(p[0]),y2:Y(0),...st},ghost);
+  el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(0),y2:Y(p[1]),...st},ghost);
+  el("circle",{cx:X(p[0]),cy:Y(0),r:6,fill:"var(--ring)"},ghost);
+  el("circle",{cx:X(0),cy:Y(p[1]),r:6,fill:"var(--ring)"},ghost);
+  el("circle",{cx:X(p[0]),cy:Y(p[1]),r:4.5,fill:"var(--ring)"},ghost);
+}
 svg.addEventListener("pointermove",e=>{
   ghost.innerHTML="";
-  if((mode!=="click"&&mode!=="free")||(mode!=="free"&&i>=steps.length))return;
   const p=snap(e);
-  if(p){el("circle",{cx:X(p[0]),cy:Y(p[1]),r:9,fill:"none",stroke:"var(--muted)","stroke-width":2,"stroke-dasharray":"4 3"},ghost);if(mode==="free"){const t=el("text",{x:X(p[0])+12,y:Y(p[1])-10,fill:"var(--ink)","font-size":13,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},ghost);t.textContent=fmt(p)}}
+  if(p){guide(p);if(mode==="click"||mode==="free")el("circle",{cx:X(p[0]),cy:Y(p[1]),r:9,fill:"none",stroke:"var(--muted)","stroke-width":2,"stroke-dasharray":"4 3"},ghost);if(mode==="free"){const t=el("text",{x:X(p[0])+12,y:Y(p[1])-10,fill:"var(--ink)","font-size":13,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},ghost);t.textContent=fmt(p)}}
 });
 svg.addEventListener("pointerleave",()=>{ghost.innerHTML=""});
 svg.addEventListener("click",e=>{
@@ -295,7 +302,14 @@ $("undo").onclick=()=>{
 };
 $("clear").onclick=()=>{F=[];lifted=false;renderFree()};
 let DL=null;
-try{claude.use("downloads").then(d=>{DL=d;if(d){$("dl").style.display="flex";if(window.jspdf)$("savepdf").style.display=""}}).catch(()=>{})}catch(e){}
+function showDL(){$("dl").style.display="flex";if(window.jspdf)$("savepdf").style.display=""}
+const localSave=({filename,data})=>{
+  const b=data instanceof Blob?data:new Blob([data],{type:filename.endsWith(".pdf")?"application/pdf":"text/plain;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);return Promise.resolve();
+};
+if(typeof claude==="undefined"){DL={save:localSave};showDL()}
+else try{claude.use("downloads").then(d=>{if(d){DL=d;showDL()}}).catch(()=>{})}catch(e){}
 function note(t){$("fnote").textContent=t}
 function guard(){if(!F.length){note("Segna almeno un punto prima di salvare.");return false}return true}
 $("savetxt").onclick=async()=>{
