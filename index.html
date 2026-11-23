@@ -59,6 +59,9 @@ button{font:inherit;font-weight:700;cursor:pointer}
 .win{display:none;text-align:center;padding:10px 0}
 .win .big{font-size:3rem}
 svg.click{cursor:crosshair;touch-action:manipulation}
+.fld{display:inline-block;min-width:4.2rem;height:2.7rem;padding:0 8px;border:2px solid var(--line);border-radius:10px;background:var(--bg);font-size:1.3rem;font-weight:800;text-align:center;line-height:2.5rem}
+.fld.on{border-color:var(--ring)}.lb{font-weight:800;color:var(--muted)}
+.fgo{border-radius:12px;background:var(--draw);color:#fff;padding:10px 16px;font-weight:700}.fgo.on{outline:3px solid var(--ring);outline-offset:2px}
 .win h2{margin:4px 0 8px}
 </style>
 </head>
@@ -72,6 +75,8 @@ svg.click{cursor:crosshair;touch-action:manipulation}
     <div class="card">
       <div class="tabs" id="tabs"></div>
       <div class="tabs" id="modes"><button class="tab" data-m="type" aria-pressed="true">Scrivi le coordinate</button><button class="tab" data-m="click" aria-pressed="false">Clicca sul piano</button><button class="tab" data-m="read" aria-pressed="false">Leggi le coordinate</button><button class="tab" data-m="free" aria-pressed="false">A mano libera</button></div>
+      <div class="row"><button class="ghost" id="demo">▶ Vedi un esempio</button><button class="ghost" id="dpause" style="display:none">⏸ Pausa</button></div>
+      <div id="demoBox" style="display:none"><p class="task" id="cap" aria-live="polite"></p><div class="entry" id="fake"><b class="lb">x</b><span class="fld" id="fx"></span><b class="lb">y</b><span class="fld" id="fy"></span><span class="fgo" id="fgo">Disegna il punto</span></div></div>
       <div id="play">
         <p class="step" id="step"></p>
         <p class="small" id="hint"></p>
@@ -248,13 +253,13 @@ function guide(p){
   el("circle",{cx:X(0),cy:Y(p[1]),r:6,fill:"var(--ring)"},ghost);
   el("circle",{cx:X(p[0]),cy:Y(p[1]),r:4.5,fill:"var(--ring)"},ghost);
 }
-svg.addEventListener("pointermove",e=>{
+svg.addEventListener("pointermove",e=>{if(demoOn)return;
   ghost.innerHTML="";
   const p=snap(e);
   if(p){guide(p);if(mode==="click"||mode==="free")el("circle",{cx:X(p[0]),cy:Y(p[1]),r:9,fill:"none",stroke:"var(--muted)","stroke-width":2,"stroke-dasharray":"4 3"},ghost);if(mode==="free"){const t=el("text",{x:X(p[0])+12,y:Y(p[1])-10,fill:"var(--ink)","font-size":13,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},ghost);t.textContent=fmt(p)}}
 });
 svg.addEventListener("pointerleave",()=>{ghost.innerHTML=""});
-svg.addEventListener("click",e=>{
+svg.addEventListener("click",e=>{if(demoOn)return;
   if(mode==="free"){const p=snap(e);if(p)addFree(p);return}
   if(mode!=="click")return;
   const p=snap(e);
@@ -376,6 +381,77 @@ fsb.onclick=()=>{
   else root.requestFullscreen().catch(()=>{fsb.style.display="none"});
 };
 document.addEventListener("fullscreenchange",()=>{fsb.textContent=document.fullscreenElement?"Esci da schermo intero":"Schermo intero"});
+let demoOn=false,demoId=0,paused=false,lost=0,pAt=0;
+const now=()=>(paused?pAt:performance.now())-lost;
+const dg=el("g",{},svg),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+$("demo").onclick=()=>{if(demoOn)demoId++;else runDemo()};
+$("dpause").onclick=()=>{
+  if(!demoOn)return;
+  if(paused){lost+=performance.now()-pAt;paused=false;$("dpause").textContent="⏸ Pausa"}
+  else{paused=true;pAt=performance.now();$("dpause").textContent="▶ Continua"}
+};
+async function runDemo(){
+  const id=++demoId,m0=mode,f0=fi;demoOn=true;paused=false;lost=0;
+  const chk=()=>{if(id!==demoId||mode!==m0||fi!==f0)throw 0};
+  const wait=async ms=>{const t=now();while(now()-t<ms){chk();await sleep(40)}};
+  const tween=(f,ms)=>new Promise((ok,ko)=>{const t0=now();const s=()=>{try{chk()}catch(e){return ko(e)}const u=Math.min(1,(now()-t0)/ms);f(u*u*(3-2*u));u<1?requestAnimationFrame(s):ok()};requestAnimationFrame(s)});
+  const cap=t=>{$("cap").textContent=t},fake=v=>{$("fake").style.display=v?"flex":"none"},clr=()=>{$("fx").textContent=$("fy").textContent=""};
+  const typeTo=async(k,s)=>{const n=$(k);n.textContent="";n.classList.add("on");for(const ch of s){await wait(450);n.textContent+=ch}await wait(500);n.classList.remove("on")};
+  const press=async()=>{$("fgo").classList.add("on");await wait(700);$("fgo").classList.remove("on")};
+  let prev=null,cx=X(-7),cy=Y(7);
+  try{
+    layer.style.display="none";ghost.innerHTML="";dg.innerHTML="";
+    $("demo").textContent="■ Ferma l’esempio";$("dpause").style.display="";$("dpause").textContent="⏸ Pausa";$("demoBox").style.display="block";
+    const cur=el("path",{d:"M0 0L0 22L6 17L10 26L14 24L10 16L17 16Z",fill:"var(--ink)",stroke:"var(--panel)","stroke-width":1.5,transform:`translate(${cx} ${cy})`,"pointer-events":"none"},dg);
+    const moveTo=p=>{const x0=cx,y0=cy,x1=X(p[0]),y1=Y(p[1]);return tween(u=>{cx=x0+(x1-x0)*u;cy=y0+(y1-y0)*u;cur.setAttribute("transform",`translate(${cx} ${cy})`)},1100)};
+    const ripple=async p=>{const c=el("circle",{cx:X(p[0]),cy:Y(p[1]),r:6,fill:"none",stroke:"var(--draw)","stroke-width":3},dg);await tween(u=>{c.setAttribute("r",6+20*u);c.setAttribute("stroke-opacity",1-u)},500);c.remove()};
+    const gl=(p,h)=>{
+      const x1=h?X(0):X(p[0]),y1=h?Y(p[1]):Y(0);
+      const l=el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(p[0]),y2:Y(p[1]),stroke:"var(--ring)","stroke-width":2.5,"stroke-dasharray":"6 4","data-g":1},dg);
+      return tween(u=>{l.setAttribute("x2",X(p[0])+(x1-X(p[0]))*u);l.setAttribute("y2",Y(p[1])+(y1-Y(p[1]))*u)},700).then(()=>{el("circle",{cx:x1,cy:y1,r:6,fill:"var(--ring)","data-g":1},dg)});
+    };
+    const noG=()=>dg.querySelectorAll("[data-g]").forEach(n=>n.remove());
+    const add=async(p,label)=>{
+      if(prev){const a=prev,l=el("line",{x1:X(a[0]),y1:Y(a[1]),x2:X(a[0]),y2:Y(a[1]),stroke:"var(--draw)","stroke-width":4,"stroke-linecap":"round"},dg);
+        await tween(u=>{l.setAttribute("x2",X(a[0])+(X(p[0])-X(a[0]))*u);l.setAttribute("y2",Y(a[1])+(Y(p[1])-Y(a[1]))*u)},500)}
+      el("circle",{cx:X(p[0]),cy:Y(p[1]),r:5,fill:"var(--draw)"},dg);
+      if(label){const t=el("text",{x:X(p[0])+8,y:Y(p[1])-8,fill:"var(--ink)","font-size":13,"font-weight":800,"font-family":"Nunito,sans-serif",stroke:"var(--bg)","stroke-width":3,"paint-order":"stroke"},dg);t.textContent=fmt(p)}
+      prev=p;
+    };
+    if(m0==="type"){
+      fake(true);
+      for(const [p,t] of [[[3,2],"Scrivo prima la x, poi la y: il punto è (3 ; 2)."],[[-2,4],"Per i numeri negativi uso il pulsante ±: il punto è (-2 ; 4)."],[[-3,-3],"Anche la y può essere negativa: (-3 ; -3)."]]){
+        clr();cap(t);await wait(1500);await typeTo("fx",String(p[0]));await typeTo("fy",String(p[1]));await press();await add(p);await wait(900);
+      }
+      cap("I punti si uniscono uno dopo l’altro.");await wait(1800);
+    }else if(m0==="click"){
+      fake(false);
+      for(const p of [[3,2],[-2,4],[-3,-3]]){
+        cap(`Clicco sull’incrocio ${fmt(p)}: le guide arrivano sugli assi.`);
+        await moveTo(p);await gl(p,false);await gl(p,true);await wait(600);await ripple(p);noG();await add(p);await wait(700);
+      }
+      cap("Se il punto è giusto, si unisce al precedente.");await wait(1800);
+    }else if(m0==="read"){
+      fake(true);
+      for(const p of [[4,3],[-3,2]]){
+        clr();cap("Sul piano c’è un punto arancione. Quali sono le sue coordinate?");
+        const t=el("circle",{cx:X(p[0]),cy:Y(p[1]),r:9,fill:"var(--ring)",stroke:"var(--ink)","stroke-width":2.5},dg);await wait(2000);
+        cap(`Scendo fino all’asse x: leggo ${p[0]}.`);await gl(p,false);await typeTo("fx",String(p[0]));
+        cap(`Vado fino all’asse y: leggo ${p[1]}.`);await gl(p,true);await typeTo("fy",String(p[1]));
+        await press();noG();t.remove();await add(p);await wait(800);
+      }
+      cap("Esatto: il punto è stato letto bene e si unisce al disegno.");await wait(1800);
+    }else{
+      fake(false);
+      cap("Clicco un incrocio qualsiasi: il punto si segna e le coordinate vengono scritte per me.");await wait(1800);
+      for(const p of [[-4,-2],[0,3],[4,-2]]){await moveTo(p);await ripple(p);await add(p,true);await wait(500)}
+      cap("«Alza la matita» fa cominciare una nuova linea.");await wait(2000);prev=null;
+      for(const p of [[-2,-5],[2,-5]]){await moveTo(p);await ripple(p);await add(p,true);await wait(500)}
+      cap("Alla fine posso salvare il disegno.");await wait(1800);
+    }
+  }catch(e){if(e!==0)console.error(e)}
+  finally{dg.innerHTML="";layer.style.display="";$("demoBox").style.display="none";$("demo").textContent="▶ Vedi un esempio";$("dpause").style.display="none";paused=false;clr();demoOn=false}
+}
 start();
 </script>
 </body>
